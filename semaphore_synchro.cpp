@@ -9,6 +9,8 @@
 #define MAX_PRODUCER_VALUE 10
 #define MIN_SLEEP_MS 1
 #define MAX_SLEEP_MS 100
+#define MAX_PRODUCER_COUNT 2
+#define MAX_CONSUMER_COUNT 2
 
 std::mutex mtx;
 std::counting_semaphore<MAX_BUFFER_SIZE> producer_semaphore(MAX_BUFFER_SIZE);
@@ -28,9 +30,8 @@ std::uniform_int_distribution<int> timeout_distributor(MIN_SLEEP_MS, MAX_SLEEP_M
 
 void producer(std::stack<int> &buffer) {
     for (int i = 0; i < MAX_BUFFER_SIZE; ++i) {
+        printf("[producerThread: %d] Producer acquiring signal...\n", std::this_thread::get_id());
         producer_semaphore.acquire();
-        printf("[producerThread %d] Producer receiving signal...\n", std::this_thread::get_id());
-
         std::unique_lock<std::mutex> lock(mtx);
 
         int value = value_distributor(generator);
@@ -38,49 +39,47 @@ void producer(std::stack<int> &buffer) {
         buffer.push(value);
 
         if(buffer.size() == MAX_BUFFER_SIZE) {
-            printf("[producerThread: %d] Producer Waiting...\n", std::this_thread::get_id());
             producer_waits++;
         }
 
         lock.unlock();
-        printf("[producerThread %d] Producer sending signal...\n", std::this_thread::get_id());
+        printf("[producerThread: %d] Producer sending signal...\n", std::this_thread::get_id());
         consumer_semaphore.release();
-//        std::this_thread::sleep_for(std::chrono::milliseconds(timeout_distributor(generator)));
+        std::this_thread::sleep_for(std::chrono::milliseconds(timeout_distributor(generator)));
     }
     std::lock_guard<std::mutex>lock(mtx);
-    printf("[producerThread %d] Producer task completed\n", std::this_thread::get_id());
+    std::cout << "Producer " << std::this_thread::get_id() << " finished" << std::endl;
     ++producer_counts;
     consumer_semaphore.release();
 }
 
 void consumer(std::stack<int> &buffer) {
     while (true) {
+        printf("[consumerThread: %d] Consumer acquiring signal...\n", std::this_thread::get_id());
         consumer_semaphore.acquire();
-        printf("[consumerThread %d] Consumer receiving signal...\n", std::this_thread::get_id());
-
         std::unique_lock<std::mutex> lock(mtx);
 
         if(!buffer.empty()) {
             consumer_sum += buffer.top();
             buffer.pop();
-        } else if (producer_counts == MAX_BUFFER_SIZE) {
+        } else if (producer_counts == MAX_PRODUCER_COUNT && buffer.empty()) {
+            consumer_semaphore.release();
             break;
         } else {
-            printf("[producerThread: %d] Consumer Waiting...\n", std::this_thread::get_id());
             consumer_waits++;
         }
 
         lock.unlock();
-        printf("[consumerThread %d] Consumer receiving signal...\n", std::this_thread::get_id());
+        printf("[consumerThread: %d] Consumer sending signal...\n", std::this_thread::get_id());
         producer_semaphore.release();
-//        std::this_thread::sleep_for(std::chrono::milliseconds(timeout_distributor(generator)));
+        std::this_thread::sleep_for(std::chrono::milliseconds(timeout_distributor(generator)));
     }
 }
 
 int main() {
     std::stack<int> stack;
-    std::thread producers[2];
-    std::thread consumers[2];
+    std::thread producers[MAX_PRODUCER_COUNT];
+    std::thread consumers[MAX_CONSUMER_COUNT];
 
     for (auto& i : producers) {
         i = std::thread(producer, std::ref(stack));
