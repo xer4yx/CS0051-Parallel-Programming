@@ -30,7 +30,7 @@ std::uniform_int_distribution<int> timeout_distributor(MIN_SLEEP_MS, MAX_SLEEP_M
 
 void producer(std::stack<int> &buffer) {
     for (int i = 0; i < MAX_BUFFER_SIZE; ++i) {
-        printf("[producerThread: %d] Producer acquiring signal...\n", std::this_thread::get_id());
+//        printf("[producerThread: %d] Producer acquiring signal...\n", std::this_thread::get_id());
         producer_semaphore.acquire();
         std::unique_lock<std::mutex> lock(mtx);
 
@@ -43,9 +43,9 @@ void producer(std::stack<int> &buffer) {
         }
 
         lock.unlock();
-        printf("[producerThread: %d] Producer sending signal...\n", std::this_thread::get_id());
+//        printf("[producerThread: %d] Producer sending signal...\n", std::this_thread::get_id());
         consumer_semaphore.release();
-        std::this_thread::sleep_for(std::chrono::milliseconds(timeout_distributor(generator)));
+//        std::this_thread::sleep_for(std::chrono::milliseconds(timeout_distributor(generator)));
     }
     std::lock_guard<std::mutex>lock(mtx);
     std::cout << "Producer " << std::this_thread::get_id() << " finished" << std::endl;
@@ -55,7 +55,7 @@ void producer(std::stack<int> &buffer) {
 
 void consumer(std::stack<int> &buffer) {
     while (true) {
-        printf("[consumerThread: %d] Consumer acquiring signal...\n", std::this_thread::get_id());
+//        printf("[consumerThread: %d] Consumer acquiring signal...\n", std::this_thread::get_id());
         consumer_semaphore.acquire();
         std::unique_lock<std::mutex> lock(mtx);
 
@@ -70,9 +70,9 @@ void consumer(std::stack<int> &buffer) {
         }
 
         lock.unlock();
-        printf("[consumerThread: %d] Consumer sending signal...\n", std::this_thread::get_id());
+//        printf("[consumerThread: %d] Consumer sending signal...\n", std::this_thread::get_id());
         producer_semaphore.release();
-        std::this_thread::sleep_for(std::chrono::milliseconds(timeout_distributor(generator)));
+//        std::this_thread::sleep_for(std::chrono::milliseconds(timeout_distributor(generator)));
     }
 }
 
